@@ -127,37 +127,30 @@ def parse_nc_file(file_path, filter_nan=True):
                 lat_grid = lats
                 lon_grid = lons
             
-            # 检查数据维度与网格维度是否匹配
-            if data.shape != lat_grid.shape:
-                # 如果数据维度与网格维度不匹配，需要转置数据
-                if data.shape == (lat_grid.shape[1], lat_grid.shape[0]):
-                    data = data.T
-                    print(f"  数据维度已自动调整: {data.shape}")
-                else:
-                    print(f"  警告: 数据维度与网格维度不匹配，可能影响数据完整性")
-            
             # 创建数据点列表
             data_points = []
-            
             for i in range(lat_grid.shape[0]):
                 for j in range(lat_grid.shape[1]):
-                    # 确保所有值都是Python原生类型
-                    lat_val = float(lat_grid[i, j])
-                    lon_val = float(lon_grid[i, j])
-                    val = data[i, j]
-                    if val is not None:
-                        val = float(val)
-                    
-                    # 如果启用NaN过滤，跳过NaN值
-                    if filter_nan and (val is None or np.isnan(val)):
-                        continue
-                    
-                    point = {
-                        'latitude': lat_val,
-                        'longitude': lon_val,
-                        'value': val
-                    }
-                    data_points.append(point)
+                    if data.shape[0] > i and data.shape[1] > j:
+                        # 确保所有值都是Python原生类型
+                        lat_val = float(lat_grid[i, j])
+                        lon_val = float(lon_grid[i, j])
+                        # 翻转索引：原来data[i,j]对应lat[i],lon[j]，现在对应lat[j],lon[i]
+                        # 即：原来经度对应j索引，纬度对应i索引，现在翻转
+                        val = data[j, i] if j < data.shape[0] and i < data.shape[1] else data[i, j]
+                        if val is not None:
+                            val = float(val)
+                        
+                        # 如果启用NaN过滤，跳过NaN值
+                        if filter_nan and (val is None or np.isnan(val)):
+                            continue
+                        
+                        point = {
+                            'latitude': lat_val,
+                            'longitude': lon_val,
+                            'value': val
+                        }
+                        data_points.append(point)
             
             result = {
                 'file_info': file_info,
