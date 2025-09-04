@@ -118,6 +118,11 @@ def parse_nc_file(file_path, filter_nan=True):
             # 转换为普通数组，缺失值设为None
             data = np.where(np.ma.getmask(data), None, data)
             
+            # 翻转数据：交换数据的第一个和第二个维度
+            # 原来data[i,j]对应lat[i],lon[j]，现在对应lat[j],lon[i]
+            data = np.transpose(data)
+            print(f"  数据已翻转: 从 {data_var.shape} 变为 {data.shape}")
+            
             # 生成经纬度网格
             if len(lats.shape) == 1 and len(lons.shape) == 1:
                 # 1D经纬度，需要生成网格
@@ -127,30 +132,46 @@ def parse_nc_file(file_path, filter_nan=True):
                 lat_grid = lats
                 lon_grid = lons
             
+            # 翻转经纬度网格以匹配翻转后的数据
+            # 数据从(i,j)变为(j,i)，所以网格也需要相应调整
+            # 确保网格维度与翻转后的数据维度匹配
+            if data.shape != lat_grid.shape:
+                # 如果维度不匹配，需要调整网格
+                if data.shape == (lat_grid.shape[1], lat_grid.shape[0]):
+                    lat_grid = np.transpose(lat_grid)
+                    lon_grid = np.transpose(lon_grid)
+                    print(f"  经纬度网格已调整: 从 {lats.shape} x {lons.shape} 变为 {lat_grid.shape}")
+                else:
+                    print(f"  警告: 无法自动调整网格维度匹配")
+            
+            # 检查数据维度与网格维度是否匹配
+            if data.shape != lat_grid.shape:
+                print(f"  警告: 数据维度与网格维度不匹配，可能影响数据完整性")
+                print(f"    数据维度: {data.shape}")
+                print(f"    网格维度: {lat_grid.shape}")
+            
             # 创建数据点列表
             data_points = []
+            
             for i in range(lat_grid.shape[0]):
                 for j in range(lat_grid.shape[1]):
-                    if data.shape[0] > i and data.shape[1] > j:
-                        # 确保所有值都是Python原生类型
-                        lat_val = float(lat_grid[i, j])
-                        lon_val = float(lon_grid[i, j])
-                        # 翻转索引：原来data[i,j]对应lat[i],lon[j]，现在对应lat[j],lon[i]
-                        # 即：原来经度对应j索引，纬度对应i索引，现在翻转
-                        val = data[j, i] if j < data.shape[0] and i < data.shape[1] else data[i, j]
-                        if val is not None:
-                            val = float(val)
-                        
-                        # 如果启用NaN过滤，跳过NaN值
-                        if filter_nan and (val is None or np.isnan(val)):
-                            continue
-                        
-                        point = {
-                            'latitude': lat_val,
-                            'longitude': lon_val,
-                            'value': val
-                        }
-                        data_points.append(point)
+                    # 确保所有值都是Python原生类型
+                    lat_val = float(lat_grid[i, j])
+                    lon_val = float(lon_grid[i, j])
+                    val = data[i, j]
+                    if val is not None:
+                        val = float(val)
+                    
+                    # 如果启用NaN过滤，跳过NaN值
+                    if filter_nan and (val is None or np.isnan(val)):
+                        continue
+                    
+                    point = {
+                        'latitude': lat_val,
+                        'longitude': lon_val,
+                        'value': val
+                    }
+                    data_points.append(point)
             
             result = {
                 'file_info': file_info,
